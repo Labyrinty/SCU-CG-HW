@@ -6,46 +6,40 @@ out vec4 FragColor;
 uniform float ambientStrength, specularStrength, diffuseStrength,shininess;
 
 in vec3 Normal;//法向量
-in vec3 FragPos;//相机观察的片元位置
-in vec2 TexCoord;//纹理坐标
-in vec4 FragPosLightSpace;//光源观察的片元位置
+in vec3 FragPos;
+in vec2 TexCoord;
+in vec4 FragPosLightSpace;
 
-uniform vec3 viewPos;//相机位置
-uniform vec4 u_lightPosition; //光源位置	
+uniform vec3 viewPos;
+uniform vec4 u_lightPosition;	
 uniform vec3 lightColor;//入射光颜色
 
 uniform sampler2D diffuseTexture;
 uniform sampler2D depthTexture;
-uniform samplerCube cubeSampler;//盒子纹理采样器
+uniform samplerCube cubeSampler;
 
 
 /*TODO3: 添加阴影计算，返回1表示是阴影，返回0表示非阴影*/
 float shadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 {
-    // 执行透视除法
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    
-    // 变换到[0,1]范围
+
     projCoords = projCoords * 0.5 + 0.5;
-    
-    // 检查是否在深度贴图范围内
+
     if(projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || 
        projCoords.y < 0.0 || projCoords.y > 1.0) {
         return 0.0;
     }
-    
-    // 从深度贴图中获取最近的深度
+
     float closestDepth = texture(depthTexture, projCoords.xy).r;
     float currentDepth = projCoords.z;
-    
-    // 动态偏差计算 - 根据表面角度调整
+
     float bias = max(0.002 * (1.0 - dot(normal, lightDir)), 0.001);
-    
-    // 检查当前片段是否在阴影中
-     float shadow = 0.0;
+
+    float shadow = 0.0;
     vec2 texelSize = 1.0 / vec2(textureSize(depthTexture, 0));
-    
-    // 5x5 PCF 采样
+
+    //采用 5X5 PCF采样进行反走样
     for(int x = -2; x <= 2; ++x) {
         for(int y = -2; y <= 2; ++y) {
             float pcfDepth = texture(depthTexture, projCoords.xy + vec2(x, y) * texelSize).r;
@@ -53,8 +47,7 @@ float shadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
         }
     }
     shadow /= 25.0;
-    
-    // 对于深度值接近1.0的区域，强制无阴影（避免远处 artifacts）
+
     if(projCoords.z > 0.999) {
         shadow = 0.0;
     }
@@ -64,11 +57,9 @@ float shadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 
 void main()
 {
-    
-    //采样纹理颜色
+
     vec3 TextureColor = texture(diffuseTexture, TexCoord).xyz;
 
-    //计算光照颜色
  	vec3 norm = normalize(Normal);
 	vec3 lightDir;
 	if(u_lightPosition.w==1.0) 
@@ -91,7 +82,6 @@ void main()
   
   	vec3 lightReflectColor=(ambient +diffuse + specular);
 
-    //判定是否阴影，并对各种颜色进行混合
     float shadow = shadowCalculation(FragPosLightSpace, norm, lightDir);
 	
     //vec3 resultColor =(ambient + (1.0-shadow) * (diffuse + specular))* TextureColor;
